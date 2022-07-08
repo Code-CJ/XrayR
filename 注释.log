@@ -1,0 +1,96 @@
+{
+// 1_日志设置
+"log": {
+"loglevel": "debug", // 内容从少到多: "none", "error", "warning", "info", "debug"
+"access": "/xx/xx/xx/access.log", // 访问记录
+"error": "/xx/xx/xx/error.log" // 错误记录
+},
+
+// 2_DNS设置
+"dns": {
+    "servers": [
+        "https+local://1.1.1.1/dns-query",    // 首选1.1.1.1的DoH查询，牺牲速度但可防止ISP偷窥
+        "localhost"
+    ]
+},
+
+// 3_分流设置
+"routing": {
+    "domainStrategy": "AsIs",
+    "rules": [
+        // 3.1 防止服务器本地流转问题：如内网被攻击或滥用、错误的本地回环等
+        {
+            "type": "field",
+            "ip": [
+                "geoip:private"    // 分流条件：geoip文件内，名为"private"的规则（本地）
+            ],
+            "outboundTag": "block"    // 分流策略：交给出站"block"处理（黑洞屏蔽）
+        },
+        // 3.2 屏蔽广告
+        {
+            "type": "field",
+            "domain": [
+                "geosite:category-ads-all"    // 分流条件：geosite文件内，名为"category-ads-all"的规则（各种广告域名）
+            ],
+            "outboundTag": "block"    // 分流策略：交给出站"block"处理（黑洞屏蔽）
+        }
+    ]
+},
+
+// 4_入站设置
+// 4.1 这里只写了一个最简单的vless+xtls的入站，因为这是Xray最强大的模式。如有其他需要，请根据模版自行添加。
+"inbounds": [
+    {
+        "port": xxx,
+        "protocol": "vless",
+
+        "settings": {
+            "clients": [
+                {
+                    "id": "xxxxxxx", // 填写你的 UUID
+                    "flow": "xtls-rprx-direct",
+                    "level": 0,
+                    "email": "xx@xx.com"
+                }
+            ],
+            "decryption": "none",
+            "fallbacks": [
+                {
+                    "dest": 8080 // 默认回落到防探测的代理
+                }
+            ]
+        },
+        "streamSettings": {
+            "network": "tcp",
+            "security": "xtls",
+            "xtlsSettings": {
+                "allowInsecure": false,    // 正常使用应确保关闭
+                "minVersion": "1.2",       // TLS最低版本设置
+                "alpn": [
+                    "http/1.1"
+                ],
+                "certificates": [
+                    {
+                        "certificateFile": "/xx/xx/xx/xray.crt",
+                        "keyFile": "/xx/xx/xx/xray.key"
+                    }
+                ]
+            }
+        }
+    }
+],
+
+// 5_出站设置
+"outbounds": [
+    // 5.1 第一个出站是默认规则，freedom就是对外直连（vps已经是外网，所以直连）
+    {
+        "tag": "direct",
+        "protocol": "freedom"
+    },
+    // 5.2 屏蔽规则，blackhole协议就是把流量导入到黑洞里（屏蔽）
+    {
+        "tag": "block",
+        "protocol": "blackhole"
+    }
+]
+}
